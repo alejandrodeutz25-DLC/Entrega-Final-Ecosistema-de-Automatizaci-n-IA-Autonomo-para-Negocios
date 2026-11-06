@@ -1,0 +1,1343 @@
+{
+  "name": "Catering - Gestión de pedidos",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {},
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -112,
+        80
+      ],
+      "id": "81ce49c3-bbe6-4f0b-8f2d-6f4bf072f1ee",
+      "name": "Recibir pedido por Gmail",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "TPSHOmtSx6BQRfzL",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "5d0ac63f-e9a2-4bf9-8943-13fd0de41d26",
+              "leftValue": "= {{ $json.subject }} {{ $json.text }}",
+              "rightValue": "catering|presupuesto",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            },
+            {
+              "id": "62922e8f-db8c-452b-8031-5220cb752ec4",
+              "leftValue": "={{ $json.subject }}",
+              "rightValue": "Re:",
+              "operator": {
+                "type": "string",
+                "operation": "notStartsWith"
+              }
+            },
+            {
+              "id": "854fd281-d2c6-454d-89c4-c2ff479ae36d",
+              "leftValue": "={{ $json.from.value[0].address }}",
+              "rightValue": "={{ $json.to.value[0].address }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "ignoreCase": "={{ true }}"
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        144,
+        80
+      ],
+      "id": "a50ef2b3-eca0-4dbe-99b4-caae767b940b",
+      "name": "¿Es pedido de catering?"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "Label_7256722676752019482"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        432,
+        448
+      ],
+      "id": "277c5203-7d99-432d-afbe-8ee617512a0a",
+      "name": "Etiquetar para revisión",
+      "webhookId": "24a753b5-84aa-49c2-bf8e-146b8c0d14a8",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "TPSHOmtSx6BQRfzL",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "=Sos el asistente de pedidos de catering de la cafetería \"Café Aroma\".\nTu tarea es leer el mail de un cliente y extraer los datos del pedido.\n\nDevolvé SOLO un JSON con esta estructura exacta:\n{\n  \"nombre\": texto o null,\n\"comensales\": número o null,\n  \"comidas_saladas\": texto o null,\n  \"comidas_dulces\": texto o null,\n  \"bebidas\": texto o null,\n  \"utensilios\": true o false,\n  \"vajilla\": true o false,\n  \"manteleria\": true o false,\n  \"fecha_evento\": \"AAAA-MM-DD\" o null,\n  \"ubicacion\": texto o null,\n  \"datos_faltantes\": lista de los datos que no aparecen en el mail,\n  \"respuesta_cliente\": borrador de respuesta al cliente\n}\n\nReglas:\n- No inventes datos. Si un dato no aparece, poné null y agregalo a \"datos_faltantes\".\n- \"comensales\" siempre como número, sin comillas.\n- Hoy es {{ $now.toFormat('yyyy-MM-dd') }}. Si el mail no menciona una fecha, \"fecha_evento\" debe ser null. Si menciona día y mes sin año, usá la próxima vez que ocurra esa fecha a partir de hoy.\n- La respuesta al cliente debe ser cordial, breve, en español rioplatense, confirmar los datos recibidos y pedir los que falten.\n- No menciones precios en la respuesta.\n- \"comensales\" equivale a personas, invitados o asistentes mencionados en el mail."
+            },
+            {
+              "content": "={{ $json.subject }} {{ $json.text }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "maxTokens": 800,
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        736,
+        -592
+      ],
+      "id": "03c6774a-4bcb-48a9-980a-d69d3c7dba92",
+      "name": "Extraer datos con IA",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "openAiApi": {
+          "id": null,
+          "name": "",
+          "__aiGatewayManaged": true
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "base": {
+          "__rl": true,
+          "value": "appHY8WjuTYTiuZRl",
+          "mode": "list",
+          "cachedResultName": "Café Aroma - Pedidos de Catering",
+          "cachedResultUrl": "https://airtable.com/appHY8WjuTYTiuZRl"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tbl7iIlWJQsxUudCc",
+          "mode": "list",
+          "cachedResultName": "Clientes",
+          "cachedResultUrl": "https://airtable.com/appHY8WjuTYTiuZRl/tbl7iIlWJQsxUudCc"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Mail": "={{ $('Recibir pedido por Gmail').item.json.from.value[0].address }}",
+            "Nombre y apellido": "={{ $json.output[0].content[0].text.nombre }}"
+          },
+          "matchingColumns": [
+            "Mail"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Nombre y apellido",
+              "displayName": "Nombre y apellido",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Mail",
+              "displayName": "Mail",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Pedidos",
+              "displayName": "Pedidos",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Cantidad de contrataciones",
+              "displayName": "Cantidad de contrataciones",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1216,
+        -608
+      ],
+      "id": "d1abcf90-5056-423a-a644-71861e99f58d",
+      "name": "Guardar cliente en Airtable",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "5VKxA47rEogt0kpB",
+          "name": "Airtable catering"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appHY8WjuTYTiuZRl",
+          "mode": "list",
+          "cachedResultName": "Café Aroma - Pedidos de Catering",
+          "cachedResultUrl": "https://airtable.com/appHY8WjuTYTiuZRl"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tbllIcXkQptLsgpZy",
+          "mode": "list",
+          "cachedResultName": "Pedidos",
+          "cachedResultUrl": "https://airtable.com/appHY8WjuTYTiuZRl/tbllIcXkQptLsgpZy"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Utensilios": "={{ $('Extraer datos con IA').item.json.output[0].content[0].text.utensilios }}",
+            "Vajilla": "={{ $('Extraer datos con IA').item.json.output[0].content[0].text.vajilla }}",
+            "Mantelería": "={{ $('Extraer datos con IA').item.json.output[0].content[0].text.manteleria }}",
+            "Cliente": "={{ [$json.id] }}",
+            "Comensales": "={{ $('Extraer datos con IA').item.json.output[0].content[0].text.comensales }}",
+            "Comidas saladas": "=\t{{ $('Extraer datos con IA').item.json.output[0].content[0].text.comidas_saladas }}",
+            "Comidas dulces": "={{ $('Extraer datos con IA').item.json.output[0].content[0].text.comidas_dulces }}",
+            "Bebidas": "={{ $('Extraer datos con IA').item.json.output[0].content[0].text.bebidas }}",
+            "Ubicación del evento": "={{ $('Extraer datos con IA').item.json.output[0].content[0].text.ubicacion }}",
+            "Fecha del evento": "={{ $('Extraer datos con IA').item.json.output[0].content[0].text.fecha_evento }}",
+            "Respuesta de la IA": "={{ $('Extraer datos con IA').item.json.output[0].content[0].text.respuesta_cliente }}",
+            "Estado": "Procesado por IA"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "ID Pedido",
+              "displayName": "ID Pedido",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Cliente",
+              "displayName": "Cliente",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Comensales",
+              "displayName": "Comensales",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Comidas saladas",
+              "displayName": "Comidas saladas",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Comidas dulces",
+              "displayName": "Comidas dulces",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Bebidas",
+              "displayName": "Bebidas",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Utensilios",
+              "displayName": "Utensilios",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Vajilla",
+              "displayName": "Vajilla",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Mantelería",
+              "displayName": "Mantelería",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Fecha del evento",
+              "displayName": "Fecha del evento",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Respuesta de la IA",
+              "displayName": "Respuesta de la IA",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Estado",
+              "displayName": "Estado",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Pendiente",
+                  "value": "Pendiente"
+                },
+                {
+                  "name": "Procesado por IA",
+                  "value": "Procesado por IA"
+                },
+                {
+                  "name": "Aprobado",
+                  "value": "Aprobado"
+                },
+                {
+                  "name": "Rechazado",
+                  "value": "Rechazado"
+                },
+                {
+                  "name": "Enviado",
+                  "value": "Enviado"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Fecha de creación",
+              "displayName": "Fecha de creación",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Registro de errores",
+              "displayName": "Registro de errores",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Ubicación del evento",
+              "displayName": "Ubicación del evento",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1568,
+        -608
+      ],
+      "id": "e1b2cd09-83f8-4557-a8b9-43f92e9198bb",
+      "name": "Guardar pedido en Airtable",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "5VKxA47rEogt0kpB",
+          "name": "Airtable catering"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "sendTo": "alejandrodeutz.25@gmail.com",
+        "subject": "=Aprobar pedido #{{ $json.fields['ID Pedido'] }} - {{ $('Guardar cliente en Airtable').item.json.fields['Nombre y apellido'] }}",
+        "message": "=Nuevo pedido de catering para revisar.\n\nComensales: {{ $json.fields.Comensales }}\nFecha: {{ $json.fields['Fecha del evento'] }}\nUbicación: {{ $json.fields['Ubicación del evento'] }}\n\n{{ $json.fields['Respuesta de la IA'] }}",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1856,
+        -608
+      ],
+      "id": "9604b590-4742-4581-8c9b-83d5412420f1",
+      "name": "Esperar aprobación humana",
+      "webhookId": "45386308-3cff-45ee-bb62-b808966e85f3",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "TPSHOmtSx6BQRfzL",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "346f6306-0018-489e-b78f-7f9fce33e587",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        2144,
+        -608
+      ],
+      "id": "9690977f-78dc-4692-85a9-4bf72eb66723",
+      "name": "¿Aprobado?"
+    },
+    {
+      "parameters": {
+        "operation": "reply",
+        "messageId": "={{ $('Recibir pedido por Gmail').item.json.id }} ",
+        "emailType": "text",
+        "message": "={{ $('Guardar pedido en Airtable').item.json.fields['Respuesta de la IA'] }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2448,
+        -624
+      ],
+      "id": "ac198456-3bd4-4c71-9cbc-c7746390afcf",
+      "name": "Responder al cliente",
+      "webhookId": "d18ab928-0824-49a7-9d74-3ea5a298bcab",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "TPSHOmtSx6BQRfzL",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appHY8WjuTYTiuZRl",
+          "mode": "list",
+          "cachedResultName": "Café Aroma - Pedidos de Catering",
+          "cachedResultUrl": "https://airtable.com/appHY8WjuTYTiuZRl"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tbllIcXkQptLsgpZy",
+          "mode": "list",
+          "cachedResultName": "Pedidos",
+          "cachedResultUrl": "https://airtable.com/appHY8WjuTYTiuZRl/tbllIcXkQptLsgpZy"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Guardar pedido en Airtable').item.json.id }}",
+            "Estado": "Enviado"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "ID Pedido",
+              "displayName": "ID Pedido",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Cliente",
+              "displayName": "Cliente",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Comensales",
+              "displayName": "Comensales",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Comidas saladas",
+              "displayName": "Comidas saladas",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Comidas dulces",
+              "displayName": "Comidas dulces",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Bebidas",
+              "displayName": "Bebidas",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Utensilios",
+              "displayName": "Utensilios",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Vajilla",
+              "displayName": "Vajilla",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Mantelería",
+              "displayName": "Mantelería",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Fecha del evento",
+              "displayName": "Fecha del evento",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Respuesta de la IA",
+              "displayName": "Respuesta de la IA",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Estado",
+              "displayName": "Estado",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Pendiente",
+                  "value": "Pendiente"
+                },
+                {
+                  "name": "Procesado por IA",
+                  "value": "Procesado por IA"
+                },
+                {
+                  "name": "Aprobado",
+                  "value": "Aprobado"
+                },
+                {
+                  "name": "Rechazado",
+                  "value": "Rechazado"
+                },
+                {
+                  "name": "Enviado",
+                  "value": "Enviado"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Fecha de creación",
+              "displayName": "Fecha de creación",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Registro de errores",
+              "displayName": "Registro de errores",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Ubicación del evento",
+              "displayName": "Ubicación del evento",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        2512,
+        -80
+      ],
+      "id": "09f5370a-c4f3-442b-a204-68e47683c71f",
+      "name": "Marcar como Enviado",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "5VKxA47rEogt0kpB",
+          "name": "Airtable catering"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "appHY8WjuTYTiuZRl",
+          "mode": "list",
+          "cachedResultName": "Café Aroma - Pedidos de Catering",
+          "cachedResultUrl": "https://airtable.com/appHY8WjuTYTiuZRl"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tbllIcXkQptLsgpZy",
+          "mode": "list",
+          "cachedResultName": "Pedidos",
+          "cachedResultUrl": "https://airtable.com/appHY8WjuTYTiuZRl/tbllIcXkQptLsgpZy"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Estado": "Rechazado",
+            "id": "={{ $('Guardar pedido en Airtable').item.json.id }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "ID Pedido",
+              "displayName": "ID Pedido",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Cliente",
+              "displayName": "Cliente",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Comensales",
+              "displayName": "Comensales",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Comidas saladas",
+              "displayName": "Comidas saladas",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Comidas dulces",
+              "displayName": "Comidas dulces",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Bebidas",
+              "displayName": "Bebidas",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Utensilios",
+              "displayName": "Utensilios",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Vajilla",
+              "displayName": "Vajilla",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Mantelería",
+              "displayName": "Mantelería",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "boolean",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Fecha del evento",
+              "displayName": "Fecha del evento",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Respuesta de la IA",
+              "displayName": "Respuesta de la IA",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Estado",
+              "displayName": "Estado",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Pendiente",
+                  "value": "Pendiente"
+                },
+                {
+                  "name": "Procesado por IA",
+                  "value": "Procesado por IA"
+                },
+                {
+                  "name": "Aprobado",
+                  "value": "Aprobado"
+                },
+                {
+                  "name": "Rechazado",
+                  "value": "Rechazado"
+                },
+                {
+                  "name": "Enviado",
+                  "value": "Enviado"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Fecha de creación",
+              "displayName": "Fecha de creación",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Registro de errores",
+              "displayName": "Registro de errores",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Ubicación del evento",
+              "displayName": "Ubicación del evento",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1920,
+        -304
+      ],
+      "id": "a124a0d4-bdad-490d-930e-a1766fa66383",
+      "name": "Marcar como Rechazado",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "5VKxA47rEogt0kpB",
+          "name": "Airtable catering"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "appHY8WjuTYTiuZRl",
+          "mode": "list",
+          "cachedResultName": "Café Aroma - Pedidos de Catering",
+          "cachedResultUrl": "https://airtable.com/appHY8WjuTYTiuZRl"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblPqjy3Ui3ns3GNx",
+          "mode": "list",
+          "cachedResultName": "Registro de errores",
+          "cachedResultUrl": "https://airtable.com/appHY8WjuTYTiuZRl/tblPqjy3Ui3ns3GNx"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Qué falló": "=Fallo en Extraer datos con IA para el mail \"{{ $('Recibir pedido por Gmail').item.json.subject }}\": {{ $json.error.message || $json.error }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Qué falló",
+              "displayName": "Qué falló",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Pedido",
+              "displayName": "Pedido",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Fecha y hora",
+              "displayName": "Fecha y hora",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1056,
+        -400
+      ],
+      "id": "b0d6c08f-b298-4358-b0f8-5dedf227bc62",
+      "name": "Registrar error de IA",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "5VKxA47rEogt0kpB",
+          "name": "Airtable catering"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        448,
+        -608
+      ],
+      "id": "da4f2a1f-ca66-454e-88b3-a08302f1261d",
+      "name": "Procesar pedidos de a uno"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Recibir pedido por Gmail": {
+      "main": [
+        [
+          {
+            "node": "¿Es pedido de catering?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es pedido de catering?": {
+      "main": [
+        [
+          {
+            "node": "Procesar pedidos de a uno",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Etiquetar para revisión",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer datos con IA": {
+      "main": [
+        [
+          {
+            "node": "Guardar cliente en Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar error de IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar cliente en Airtable": {
+      "main": [
+        [
+          {
+            "node": "Guardar pedido en Airtable",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar pedido en Airtable": {
+      "main": [
+        [
+          {
+            "node": "Esperar aprobación humana",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Esperar aprobación humana": {
+      "main": [
+        [
+          {
+            "node": "¿Aprobado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Aprobado?": {
+      "main": [
+        [
+          {
+            "node": "Responder al cliente",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar como Rechazado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder al cliente": {
+      "main": [
+        [
+          {
+            "node": "Marcar como Enviado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar pedidos de a uno": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Extraer datos con IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marcar como Enviado": {
+      "main": [
+        [
+          {
+            "node": "Procesar pedidos de a uno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Marcar como Rechazado": {
+      "main": [
+        [
+          {
+            "node": "Procesar pedidos de a uno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar error de IA": {
+      "main": [
+        [
+          {
+            "node": "Procesar pedidos de a uno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "30a1e56a-1be0-43b8-96e3-0121007b010b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e17dcc1c48fc5be460b369aa184c442aaf4038637f0c09c144f08cc9a84a4453"
+  },
+  "nodeGroups": [],
+  "id": "i80SVMjjrPVxYTGJ",
+  "tags": []
+}
